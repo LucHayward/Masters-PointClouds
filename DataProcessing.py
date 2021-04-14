@@ -1,5 +1,4 @@
 import numpy as np
-import pptk
 import open3d as o3d
 from pathlib import Path
 
@@ -11,7 +10,7 @@ def load_from_ply(file):
     :return: xyz, intensity, rgb and open3d point cloud
     """
     print(f"Loading {file}")
-    filename = str(ply_files[index])
+    filename = str(file)
     ply_load = o3d.io.read_point_cloud(filename)
     xyz = np.asarray(ply_load.points)
     rgb = np.asarray(ply_load.colors)
@@ -37,11 +36,11 @@ def load_from_ptx(file_list):
             cols.append(col)
             print(f'Rows: {row}\nCols: {col}\nTotal points: {row * col}\n')
             point_clouds.append(np.loadtxt(ptx_file, skiprows=10))
-    Flatten = lambda t: [item for sublist in t for item in sublist]
-    flat_point_cloud = Flatten(point_clouds)
+
+    flat_point_cloud = np.concatenate(point_clouds)
     xyz = flat_point_cloud[:, :3]
     intensity = flat_point_cloud[:, 3]
-    rgb = flat_point_cloud[:, 4:]
+    rgb = flat_point_cloud[:, 4:] / 255
     return xyz, intensity, rgb
 
 
@@ -55,7 +54,7 @@ def save_to_ply(file, pcd):
     return o3d.io.write_point_cloud(str(file), pcd, print_progress=True)
 
 
-def convert_to_pointcloud( xyz, intensity, rgb):
+def convert_to_pointcloud(xyz, intensity, rgb):
     """
     Creates an open3d Point Cloud from the given parameters and saves the intensity in the first normal channel
     :param xyz:
@@ -72,29 +71,35 @@ def convert_to_pointcloud( xyz, intensity, rgb):
     return pcd
 
 
-datasets_dir = Path("/Users/luc/Downloads/MastersDatasets/")
-sub_dirs = [x for x in datasets_dir.iterdir() if x.is_dir()]
-print(f"Available datasets:\n{sub_dirs}")
-dataset_dir = sub_dirs[int(input("Directory index: "))]
-files_list = [x for x in dataset_dir.iterdir()]
-files_list.sort()
-print(files_list)
-ply_files = [x for x in files_list if x.suffix == '.ply']
+def main():
+    """
+    Opens the MastersDataset folder and loads the chosen datasets into memory
+    :return: xyz, intensity and RGB data as well as the o3d PointCloud object
+    """
+    datasets_dir = Path("/Users/luc/Downloads/MastersDatasets/")
+    sub_dirs = [x for x in datasets_dir.iterdir() if x.is_dir()]
+    print(f"Available datasets:\n{sub_dirs}")
+    dataset_dir = sub_dirs[int(input("Directory index: "))]
+    files_list = [x for x in dataset_dir.iterdir()]
+    files_list.sort()
+    print(files_list)
+    ply_files = [x for x in files_list if x.suffix == '.ply']
 
-if any(ply_files) and input(f"Found .ply files:\n{ply_files}\nLoad (y/n)?: "):
-    index = int(input("File index:"))
-    xyz, intensity, rgb, pointcloud = load_from_ply(ply_files[index])
+    if any(ply_files) and input(f"Found .ply files:\n{ply_files}\nLoad (y/n)?: "):
+        index = int(input("File index:")) if len(ply_files) > 1 else 0
+        xyz, intensity, rgb, pointcloud = load_from_ply(ply_files[index])
 
-else:
-    xyz, intensity, rgb = load_from_ptx(files_list)
-    pointcloud = convert_to_pointcloud(xyz, intensity, rgb)
-    save_to_ply(dataset_dir / (dataset_dir.name + ".ply"), xyz, intensity, rgb)
+    else:
+        xyz, intensity, rgb = load_from_ptx(files_list)
+        pointcloud = convert_to_pointcloud(xyz, intensity, rgb)
+        save_to_ply(dataset_dir / (dataset_dir.name + ".ply"), pointcloud)
 
-# TODO multithread
-# point_cloud = np.loadtxt(file_to_open, skiprows=10)
-print("Loaded point clouds")
+    print("Loaded point clouds")
 
-classification = [x == 255 for x in rgb[:, 0]]
+    classification = [x == 255 for x in rgb[:, 0]]
+    return xyz, intensity, rgb, pointcloud
+    # save_to_ply(dataset_dir / (dataset_dir.name + ".ply"), xyz, intensity, rgb)
 
 
-# save_to_ply(dataset_dir / (dataset_dir.name + ".ply"), xyz, intensity, rgb)
+if __name__ == '__main__':
+    main()
