@@ -54,6 +54,19 @@ def save_to_ply(file, pcd):
     return o3d.io.write_point_cloud(str(file), pcd, print_progress=True)
 
 
+def get_spatial_info(pointcloud):
+    print(f"Max bounds: {pointcloud.get_max_bound()}")
+    print(f"Min bounds: {pointcloud.get_min_bound()}")
+    print(f"Mean and covariance: {pointcloud.compute_mean_and_covariance()}")
+    print(f"Nearest Neighbour distance: {pointcloud.computer_nearest_neighbour_distance()}")
+
+
+def clean_pointcloud(pointcloud):
+    # pointcloud.remove_statistical_outlier(neighbours, ratio)
+    # pointcloud.remove_radius_outlier(n_points, radius)
+    raise NotImplementedError
+
+
 def convert_to_pointcloud(xyz, intensity, rgb):
     """
     Creates an open3d Point Cloud from the given parameters and saves the intensity in the first normal channel
