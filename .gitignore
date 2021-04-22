@@ -132,6 +132,8 @@ dmypy.json
 /.idea/modules.xml
 /.idea/inspectionProfiles/profiles_settings.xml
 /.idea/inspectionProfiles/Project_Default.xml
-/requirements.txt
+
 /test.pcd
 /.idea/vcs.xml
+
+/Data

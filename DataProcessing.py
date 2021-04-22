@@ -20,7 +20,7 @@ def load_from_ply(file):
 
 def load_from_ptx(file_list):
     """
-    Loads data from the give ptx files into memory
+    Loads data from the give ptx files into memory. Converts red channel to 0/255
     :param file_list: PathLib ptx files
     :return: xyz, intensity and rgb
     """
@@ -38,10 +38,12 @@ def load_from_ptx(file_list):
             point_clouds.append(np.loadtxt(ptx_file, skiprows=10))
 
     flat_point_cloud = np.concatenate(point_clouds)
-    xyz = flat_point_cloud[:, :3]
-    intensity = flat_point_cloud[:, 3]
-    rgb = flat_point_cloud[:, 4:] / 255
-    return xyz, intensity, rgb
+    # xyz = flat_point_cloud[:, :3]
+    # intensity = flat_point_cloud[:, 3]
+    # rgb = flat_point_cloud[:, 4:] / 255
+    # flat_point_cloud = flat_point_cloud[:, 4] * 255
+    flat_point_cloud[:, 4] = [255 if x != 0 else 0 for x in flat_point_cloud[:, 4]]
+    return flat_point_cloud[:, :3], flat_point_cloud[:, 3], flat_point_cloud[:, 4:] / 255
 
 
 def save_to_ply(file, pcd):
@@ -67,6 +69,40 @@ def clean_pointcloud(pointcloud):
     raise NotImplementedError
 
 
+# TODO: allow shape
+# def segment_pointcloud(pointcloud, shape):
+def segment_pointcloud(pointcloud, num_splits):
+    # if len(shape) > 3:
+    #     print("Cannot use greater than 3 dimensions")
+    print(f"Splitting pointcloud in {num_splits}")
+    xyz, rgb, intensity = convert_to_arrays(pointcloud)
+    x_sorted_inds = xyz[:, 0].argsort()  # get the indices for xyz sorted on x
+    xyz, rgb, intensity = xyz[x_sorted_inds], rgb[x_sorted_inds], intensity[x_sorted_inds]
+
+    segments = np.array_split(rgb[:,0], num_splits)
+    print(f"Split {len(rgb)} points along the x axis into {num_splits} chunks of size:\n"
+          f"{[len(s) for s in segments]}\n"
+          f"Num 'removed' points per chunk:\n"
+          f"{[np.sum(s) for s in segments]}")
+
+
+
+
+    # for i, s in enumerate(segments):
+    #     for ss in s:
+    #         ss[0] = i
+
+    return convert_to_pointcloud(xyz, intensity, rgb), segments
+
+
+def generate_segment_mask(size, splits):
+    return [x//size for x in range(size)]
+
+
+def convert_to_arrays(pointcloud):
+    return np.asarray(pointcloud.points), np.asarray(pointcloud.colors), np.asarray(pointcloud.normals)[:, 0]
+
+
 def convert_to_pointcloud(xyz, intensity, rgb):
     """
     Creates an open3d Point Cloud from the given parameters and saves the intensity in the first normal channel
@@ -77,7 +113,7 @@ def convert_to_pointcloud(xyz, intensity, rgb):
     """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz)
-    pcd.colors = o3d.utility.Vector3dVector(rgb / 255)
+    pcd.colors = o3d.utility.Vector3dVector(rgb)
     # storing intensity in normals[0]
     pcd.normals = o3d.utility.Vector3dVector(
         np.stack((intensity, np.zeros(intensity.shape), np.zeros(intensity.shape)), 1))
@@ -89,7 +125,7 @@ def main():
     Opens the MastersDataset folder and loads the chosen datasets into memory
     :return: xyz, intensity and RGB data as well as the o3d PointCloud object
     """
-    datasets_dir = Path("/Users/luc/Downloads/MastersDatasets/")
+    datasets_dir = Path("Data/")
     sub_dirs = [x for x in datasets_dir.iterdir() if x.is_dir()]
     print(f"Available datasets:\n{sub_dirs}")
     dataset_dir = sub_dirs[int(input("Directory index: "))]
@@ -98,7 +134,7 @@ def main():
     print(files_list)
     ply_files = [x for x in files_list if x.suffix == '.ply']
 
-    if any(ply_files) and input(f"Found .ply files:\n{ply_files}\nLoad (y/n)?: "):
+    if any(ply_files) and input(f"Found .ply files:\n{ply_files}\nLoad (y/n)?: ") == "y":
         index = int(input("File index:")) if len(ply_files) > 1 else 0
         xyz, intensity, rgb, pointcloud = load_from_ply(ply_files[index])
 
