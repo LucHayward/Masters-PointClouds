@@ -79,11 +79,18 @@ def segment_pointcloud(pointcloud, num_splits):
     x_sorted_inds = xyz[:, 0].argsort()  # get the indices for xyz sorted on x
     xyz, rgb, intensity = xyz[x_sorted_inds], rgb[x_sorted_inds], intensity[x_sorted_inds]
 
-    segments = np.array_split(rgb[:,0], num_splits)
+
+    # TODO segments are very eneven spatially (first and last cover much more ground)
+    class_segments = np.array_split(rgb[:,0], num_splits)
+    xyz_segments = np.array_split(xyz, num_splits)
     print(f"Split {len(rgb)} points along the x axis into {num_splits} chunks of size:\n"
-          f"{[len(s) for s in segments]}\n"
+          f"{[len(s) for s in class_segments]}\n"
           f"Num 'removed' points per chunk:\n"
-          f"{[np.sum(s) for s in segments]}")
+          f"{[np.sum(s) for s in class_segments]}\n"
+          f"x-distance in each chunk:\n"
+          f"{[seg[:,0].max() - seg[:,0].min() for seg in xyz_segments]}\n"
+          f"Area of each chunk:\n"
+          f"{[(seg[:,1].max() - seg[:,1].min()) * (seg[:,0].max() - seg[:,0].min()) for seg in xyz_segments]}")
 
 
 
@@ -92,7 +99,7 @@ def segment_pointcloud(pointcloud, num_splits):
     #     for ss in s:
     #         ss[0] = i
 
-    return convert_to_pointcloud(xyz, intensity, rgb), segments
+    return convert_to_pointcloud(xyz, intensity, rgb), class_segments
 
 
 def generate_segment_mask(size, splits):
