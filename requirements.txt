@@ -11,9 +11,9 @@ defusedxml==0.7.1
 entrypoints==0.3
 importlib-metadata==4.0.0
 ipykernel==5.5.3
+ipywidgets==7.6.3
 ipython==7.22.0
 ipython-genutils==0.2.0
-ipywidgets==7.6.3
 jedi==0.18.0
 Jinja2==2.11.3
 jsonschema==3.2.0

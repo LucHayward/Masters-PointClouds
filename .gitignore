@@ -137,3 +137,6 @@ dmypy.json
 /.idea/vcs.xml
 
 /Data
+/recording
+#/Screenshots
+/.idea/workspace.xml
