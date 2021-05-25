@@ -172,9 +172,9 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
 
     chunk_sizes = [len(s) for s in segments]
     removed_points = [np.sum(s) for s in segments]
-    x_distances = [seg[:, 0].max() - seg[:, 0].min() for seg in xyz_segments]
-    y_distances = [seg[:, 1].max() - seg[:, 1].min() for seg in xyz_segments]
-    areas = [(seg[:, 1].max() - seg[:, 1].min()) * (seg[:, 0].max() - seg[:, 0].min()) for seg in xyz_segments]
+    x_distances = [seg[:, 0].max() - seg[:, 0].min() for seg in xyz_segments if seg.size > 0]
+    y_distances = [seg[:, 1].max() - seg[:, 1].min() for seg in xyz_segments if seg.size > 0]
+    areas = [(seg[:, 1].max() - seg[:, 1].min()) * (seg[:, 0].max() - seg[:, 0].min()) for seg in xyz_segments if seg.size > 0]
     print(f"Split {len(rgb)} points along the x axis into {num_splits} chunks of size:\n"
           f"{chunk_sizes}\n"
           f"Num 'removed' points per chunk:\n"
@@ -220,7 +220,7 @@ def sort_pointcloud(pointcloud, axis='x'):
     axis = axis_dict[axis]
     xyz, intensity, rgb = convert_to_arrays(pointcloud)
     axis_sorted_indices = xyz[:, axis].argsort()  # get the indices for xyz sorted on x
-    return xyz[axis_sorted_indices], intensity[axis_sorted_indices], rgb[axis_sorted_indices],
+    return xyz[axis_sorted_indices], intensity[axis_sorted_indices], rgb[axis_sorted_indices]
 
 
 def generate_segment_mask(size, splits):
