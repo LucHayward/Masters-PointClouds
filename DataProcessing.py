@@ -142,6 +142,19 @@ def remove_zero_points(pointcloud):
 # TODO: allow shape
 # def segment_pointcloud(pointcloud, shape):
 def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_axis='x'):
+    """
+
+    :param pointcloud:
+    :type pointcloud:
+    :param num_splits:
+    :type num_splits:
+    :param segment_method: ['uniform', 'spatial']
+    :type segment_method:
+    :param sort_axis:
+    :type sort_axis:
+    :return:
+    :rtype:
+    """
     assert segment_method in ['uniform', 'spatial']
     # if len(shape) > 3:
     #     print("Cannot use greater than 3 dimensions")
@@ -179,6 +192,8 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
           f"{chunk_sizes}\n"
           f"Num 'removed' points per chunk:\n"
           f"{removed_points}\n"
+          f"Percentage removed points per chunk:\n"
+          f"{[x*100/y for x,y in zip(removed_points,chunk_sizes)]}\n"
           f"x-distance in each chunk:\n"
           f"{x_distances}\n"
           f"y-distance in each chunk:\n"
@@ -188,8 +203,9 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
 
     # TODO This is 2813036 points (10%)
     # v_chunk = pptk.viewer(xyz[(4943053*2):(4943053*3)], rgb[(4943053*2):(4943053*3)])
-
+    segments_old = [len(segments)]
     for i in range(len(segments)):
+        # segments_old.append(np.copy(segments[i]))
         segments[i].fill(i)
 
     return convert_to_pointcloud(xyz, intensity, rgb), segments

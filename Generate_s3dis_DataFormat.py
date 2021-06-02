@@ -24,7 +24,7 @@ s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
 
 pointcloud = DataProcessing.load_from_ply(church_file)
 
-pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, 50, segment_method='uniform', sort_axis='x')
+pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, 50, segment_method='spatial', sort_axis='x')
 
 # Need it in the format
 # Area_x/Segment_x/Annotations/
@@ -45,9 +45,9 @@ segs = []
 temp_seg = None
 last_merge = 0
 temp = 0
+# minimum_segment_size = np.median(segment_sizes)
+minimum_segment_size = 4096
 for i, size in tqdm(enumerate(segment_sizes)):
-    # minimum_segment_size = np.median(segment_sizes)
-    minimum_segment_size = 1024
     if size < minimum_segment_size:
         temp += size
         if temp_seg is None:
@@ -68,6 +68,9 @@ for i, size in tqdm(enumerate(segment_sizes)):
         temp_seg = None
         temp = 0
 if temp_seg is not None:
+    if temp_seg.size < minimum_segment_size:
+        ss[-1] += temp
+        segs[-1] = np.concatenate((segs[-1], temp_seg))
     segs.append(temp_seg)
     ss.append(temp)
 segments = segs
@@ -76,7 +79,14 @@ segment_sizes = [x.size for x in segments]
 xyz, intensity, rgb = DataProcessing.convert_to_arrays(pointcloud)
 # class_sorted_indices = rgb[:, 0].argsort()
 # xyz, intensity, rgb = xyz[class_sorted_indices], intensity[class_sorted_indices], rgb[class_sorted_indices]
-print(f'Num Discard points: {rgb[:, 0].sum()}')
+print(f'Num Total points: {rgb.size}\nNum Total Discard points: {rgb[:, 0].sum()} ')
+discarded_points = []
+cnt = 0
+for seg in segments:
+    discarded_points.append(np.sum(rgb[cnt:cnt + len(seg), 0]))
+    cnt += len(seg)
+print(f"Discarded points per segment:\n{discarded_points}")
+
 discard_cnt = 0
 point_id = 0
 # TODO remove all files in folders below before running
@@ -85,7 +95,7 @@ point_id = 0
 meta_dir = s3dis_data_format_dir.joinpath(f'../meta_{args.dataset}'.lower())
 meta_dir.mkdir(exist_ok=True, parents=True)
 with open(meta_dir.joinpath('anno_paths.txt'), 'w+') as anno_paths_outfile, \
-    open(meta_dir.joinpath('class_names.txt'), 'w+') as class_names_outfile:
+        open(meta_dir.joinpath('class_names.txt'), 'w+') as class_names_outfile:
     class_names_outfile.write('keep\ndiscard')
 
     for segment_id in tqdm(range(len(segments))):
@@ -94,23 +104,23 @@ with open(meta_dir.joinpath('anno_paths.txt'), 'w+') as anno_paths_outfile, \
         annotations_dir.mkdir(exist_ok=True, parents=True)
 
         with open(annotations_dir.joinpath('keep_1.txt'), 'w+') as keep_outfile, \
-            open(annotations_dir.joinpath('discard_1.txt'), 'w+') as discard_outfile, \
-            open(segment_dir.joinpath(f'segment_{segment_id + 1}.txt'), 'w+') as points_outfile:
+                open(annotations_dir.joinpath('discard_1.txt'), 'w+') as discard_outfile, \
+                open(segment_dir.joinpath(f'segment_{segment_id + 1}.txt'), 'w+') as points_outfile:
 
-            anno_paths_outfile.write(f'{area_map.get(args.dataset)}/segment_{segment_id+1}/Annotations\n')
+            anno_paths_outfile.write(f'{area_map.get(args.dataset)}/segment_{segment_id + 1}/Annotations\n')
 
             for point in xyz[point_id:point_id + segments[segment_id].size - 1]:
                 point_id += 1
                 # Multiply IGB data by 255 as s3dis expects prenormalised input
                 points_outfile.write(
-                    f'{point[0]} {point[1]} {point[2]} {intensity[point_id]*255} {rgb[point_id,1]*255} {rgb[point_id,2]*255}\n')
+                    f'{point[0]} {point[1]} {point[2]} {intensity[point_id] * 255} {rgb[point_id, 1] * 255} {rgb[point_id, 2] * 255}\n')
                 if rgb[point_id, 0] == 0:
                     keep_outfile.write(
-                        f'{point[0]} {point[1]} {point[2]} {intensity[point_id]*255} {rgb[point_id,1]*255} {rgb[point_id,2*255]}\n')
+                        f'{point[0]} {point[1]} {point[2]} {intensity[point_id] * 255} {rgb[point_id, 1] * 255} {rgb[point_id, 2 * 255]}\n')
                 else:
                     discard_cnt += 1
                     discard_outfile.write(
-                        f'{point[0]} {point[1]} {point[2]} {intensity[point_id]*255} {rgb[point_id,1]*255} {rgb[point_id,2]*255}\n')
+                        f'{point[0]} {point[1]} {point[2]} {intensity[point_id] * 255} {rgb[point_id, 1] * 255} {rgb[point_id, 2] * 255}\n')
 
 print(f'Discard count = {discard_cnt}')
 
