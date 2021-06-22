@@ -24,7 +24,11 @@ s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
 
 pointcloud = DataProcessing.load_from_ply(church_file)
 
-pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, 2, segment_method='grid', sort_axis='x')
+SEGMENT_METHOD = 'grid'
+NUM_SPLITS = 4
+
+pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, NUM_SPLITS, segment_method=SEGMENT_METHOD,
+                                                         sort_axis='x')
 
 # Need it in the format
 # Area_x/Segment_x/Annotations/
@@ -40,46 +44,127 @@ pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, 2, segment_
 #  For now have just left it as uniform because I'm hungry and its 10pm
 segment_sizes = [x.size for x in segments]
 
-ss = []
-segs = []
-temp_seg = None
-last_merge = 0
-temp = 0
-# minimum_segment_size = np.median(segment_sizes)
-minimum_segment_size = 4096
-for i, size in tqdm(enumerate(segment_sizes)):
-    if size < minimum_segment_size:
-        temp += size
-        if temp_seg is None:
-            temp_seg = segments[i]
+if SEGMENT_METHOD != 'grid':
+    ss = []
+    segs = []
+    temp_seg = None
+    last_merge = 0
+    temp = 0
+    # minimum_segment_size = np.median(segment_sizes)
+    minimum_segment_size = 4096
+    for i, size in tqdm(enumerate(segment_sizes)):
+        if size < minimum_segment_size:
+            temp += size
+            if temp_seg is None:
+                temp_seg = segments[i]
+            else:
+                temp_seg = np.concatenate((temp_seg, segments[i]))
+        elif temp != 0 and (temp + size) >= minimum_segment_size:
+            ss.append(temp + size)
+            temp = 0
+            segs.append(np.concatenate((temp_seg, segments[i])))
+            temp_seg = None
         else:
-            temp_seg = np.concatenate((temp_seg, segments[i]))
-    elif temp != 0 and (temp + size) >= minimum_segment_size:
-        ss.append(temp + size)
-        temp = 0
-        segs.append(np.concatenate((temp_seg, segments[i])))
-        temp_seg = None
-    else:
-        ss.append(size)
-        segs.append(segments[i])
-    if temp >= minimum_segment_size:
-        ss.append(temp)
+            ss.append(size)
+            segs.append(segments[i])
+        if temp >= minimum_segment_size:
+            ss.append(temp)
+            segs.append(temp_seg)
+            temp_seg = None
+            temp = 0
+    if temp_seg is not None:
+        if temp_seg.size < minimum_segment_size:
+            ss[-1] += temp
+            segs[-1] = np.concatenate((segs[-1], temp_seg))
         segs.append(temp_seg)
-        temp_seg = None
+        ss.append(temp)
+    segments = segs
+    segment_sizes = [x.size for x in segments]
+
+else:
+    minimum_segment_size = 4096
+    # Loop across columns
+    col_id = 0
+    ss = []
+    segs = []
+    temp_seg = None
+    last_merge = 0
+    temp = 0
+    for col_start in range(0, len(segment_sizes), NUM_SPLITS):
+        print(f'Col_id: {col_id}')
+        print(f'Col_start: {col_start}')
         temp = 0
-if temp_seg is not None:
-    if temp_seg.size < minimum_segment_size:
-        ss[-1] += temp
-        segs[-1] = np.concatenate((segs[-1], temp_seg))
-    segs.append(temp_seg)
-    ss.append(temp)
-segments = segs
+        temp_seg = None
+        for y_val in range(NUM_SPLITS):
+            print(f'SegSize: {segment_sizes[col_start + y_val]}')
+            size = segment_sizes[col_start + y_val]
+
+            # if size < min_size
+            #   add size to temp
+            #   add current seg to temp_seg
+            # elif there is a temp_seg and temp_seg+size >= min_size
+            #   reset temp/temp_seg and append temp_seg+this to segs
+            # else
+            #   append this to segs
+            #
+            # if temp>= min_size
+            #   append temp to segs and reset
+            #
+            # FINALLY
+            # if there is a temp_seg remaining
+            #   if temp_seg is < min_size
+            #       concatenate it to the previous seg
+            #   else
+            #      append it to segs
+            # TODO simplify and remove the temp tracking
+            if size < minimum_segment_size:
+                temp += size
+                if temp_seg is None:
+                    temp_seg = segments[col_start + y_val]
+                else:
+                    temp_seg = np.concatenate((temp_seg, segments[col_start + y_val]))
+
+            elif temp != 0 and (temp + size) >= minimum_segment_size:
+                ss.append(temp + size)
+                temp = 0
+                segs.append(np.concatenate((temp_seg, segments[col_start + y_val])))
+                temp_seg = None
+            else:
+                ss.append(size)
+                segs.append(segments[col_start + y_val])
+
+            if temp >= minimum_segment_size:
+                ss.append(temp)
+                segs.append(temp_seg)
+                temp_seg = None
+                temp = 0
+        if temp_seg is not None:
+            if temp_seg.size < minimum_segment_size:
+                ss[-1] += temp
+                segs[-1] = np.concatenate((segs[-1], temp_seg))
+
+            else:
+                segs.append(temp_seg)
+                ss.append(temp)
+
+        col_id += 1
+        print()
+
+import copy
+segments = copy.deepcopy(segs)
+for s_id, s in enumerate(segments):
+    s.fill(s_id)
 segment_sizes = [x.size for x in segments]
 
+# Loop across columns
+
 xyz, intensity, rgb = DataProcessing.convert_to_arrays(pointcloud)
+
+import pptk
+v = pptk.viewer(xyz, rgb[:,0], DataProcessing.flatten_list(segments))
 # class_sorted_indices = rgb[:, 0].argsort()
 # xyz, intensity, rgb = xyz[class_sorted_indices], intensity[class_sorted_indices], rgb[class_sorted_indices]
-print(f'Num Total points: {rgb.size}\nNum Total Discard points: {rgb[:, 0].sum()} ')
+print(f'Num Total points: {len(rgb)}\nNum Total Discard points: {rgb[:, 0].sum()} ')
 discarded_points = []
 cnt = 0
 for seg in segments:

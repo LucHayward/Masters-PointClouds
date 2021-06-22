@@ -145,21 +145,16 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
     """
 
     :param pointcloud:
-    :type pointcloud:
     :param num_splits:
-    :type num_splits:
-    :param segment_method: ['uniform', 'spatial']
-    :type segment_method:
+    :param segment_method: ['uniform', 'spatial', 'grid']
     :param sort_axis:
-    :type sort_axis:
-    :return:
-    :rtype:
+    :return: Pointcloud, list of segment_ids
     """
     assert segment_method in ['uniform', 'spatial', 'grid']
     # if len(shape) > 3:
     #     print("Cannot use greater than 3 dimensions")
     # TODO refactor sorting
-    print(f"Splitting pointcloud in {num_splits}")
+    print(f"Splitting pointcloud in {num_splits if segment_method != 'grid' else num_splits * num_splits}")
     xyz, intensity, rgb = sort_pointcloud(pointcloud, sort_axis)
 
     # TODO segments are very uneven spatially (first and last cover much more ground)
@@ -188,30 +183,63 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
         intervals = total_distances // num_splits
         xs = np.arange(pointcloud.get_min_bound()[0], pointcloud.get_max_bound()[0], intervals[0])
         ys = np.arange(pointcloud.get_min_bound()[1], pointcloud.get_max_bound()[1], intervals[1])
-        grid_shape = (len(xs), len(ys))
-        grid = np.zeros(grid_shape).tolist()
+        grid_shape = (len(xs) - 1, len(ys) - 1)
+        grid = np.zeros(grid_shape).tolist()  # Contains all the point_idxs for that grid cell
         total = 0
-        for x in range(num_splits + 1):
-            for y in range(num_splits + 1):
-                grid[x][y] = np.where(
-                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
-                    (xyz[:, 0] <= (xyz_min[0] + intervals[0] * (x + 1))) &
-                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
-                    (xyz[:, 1] <= (xyz_min[1] + intervals[1] * (y + 1)))
-                )[0]
-                # total += len(segments[x][y])
-        segments = flatten_list(grid)
-        label_segments = [rgb[s, 0] for s in segments]
-        xyz_segments = [xyz[s] for s in segments]
+        for x in range(num_splits):
+            for y in range(num_splits):
+                print(f'cell ({x},{y})')
+                if x == num_splits - 1:
+                    grid[x][y] = np.where(
+                        (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                        # (xyz[:, 0] <= (xyz_min[0] + intervals[0] * (x + 1))) &
+                        (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                        (xyz[:, 1] <= (xyz_min[1] + intervals[1] * (y + 1)))
+                    )[0]
+                    print(f'{(xyz_min[0] + intervals[0] * x):.4f}<=x<=inf\n'
+                          f'{(xyz_min[1] + intervals[1] * y):.4f}<=y<={(xyz_min[1] + intervals[1] * (y + 1)):.4f}')
+                elif y == num_splits - 1:
+                    grid[x][y] = np.where(
+                        (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                        (xyz[:, 0] <= (xyz_min[0] + intervals[0] * (x + 1))) &
+                        (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y))
+                        # (xyz[:, 1] <= (xyz_min[1] + intervals[1] * (y + 1)))
+                    )[0]
+                    print(f'{(xyz_min[0] + intervals[0] * x):.4f}<=x<={(xyz_min[0] + intervals[0] * (x + 1)):.4f}\n'
+                          f'{(xyz_min[1] + intervals[1] * y):.4f}<=y<=inf')
+                else:
+                    grid[x][y] = np.where(
+                        (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                        (xyz[:, 0] <= (xyz_min[0] + intervals[0] * (x + 1))) &
+                        (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                        (xyz[:, 1] <= (xyz_min[1] + intervals[1] * (y + 1)))
+                    )[0]
+                    print(f'{(xyz_min[0] + intervals[0] * x):.4f}<=x<={(xyz_min[0] + intervals[0] * (x + 1)):.4f}\n'
+                          f'{(xyz_min[1] + intervals[1] * y):.4f}<=y<={(xyz_min[1] + intervals[1] * (y + 1)):.4f}')
+                total += len(grid[x][y])
+                print(f'points = {len(grid[x][y])}\n')
 
-        for g in grid:
-            for gg in g:
-                print(str(len(gg)).ljust(8), end='\t')
+        assert total == len(xyz), "Change the grid splitting code in DataProcessing"
+        segments = flatten_list(grid)
+        # label_segments = [rgb[s, 0] for s in segments]
+        # xyz_segments = [xyz[s] for s in segments]
+
+        print("DEBUG: Grid cell totals")
+        for col in reversed(range(len(grid))):
+            for row in range(len(grid[col])):
+                print(str(len(grid[row][col])).ljust(8), end='\t')
             print()
 
-        grid_mask = np.array([])
+        grid_mask = np.zeros(len(xyz))
         for val, s in enumerate(segments):
-            grid_mask = np.append(grid_mask, np.full(len(s), val))
+            grid_mask[s] = val
+
+        import pptk
+        v = pptk.viewer(xyz, grid_mask, rgb[:, 0])
+
+        sorted_idxs = grid_mask.argsort()
+        grid_mask = grid_mask[sorted_idxs]
+        return convert_to_pointcloud(xyz[sorted_idxs], intensity[sorted_idxs], rgb[sorted_idxs]), np.split(grid_mask, np.cumsum([len(s) for s in segments]))[:-1]
 
     chunk_sizes = [len(s) for s in label_segments]
     discard_points = [np.sum(s) for s in label_segments]
@@ -219,18 +247,19 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
     y_distances = [seg[:, 1].max() - seg[:, 1].min() for seg in xyz_segments if seg.size > 0]
     areas = [(seg[:, 1].max() - seg[:, 1].min()) * (seg[:, 0].max() - seg[:, 0].min()) for seg in xyz_segments if
              seg.size > 0]
-    print(f"Split {len(rgb)} points along the x axis into {num_splits if segment_method != 'grid' else num_splits*num_splits} chunks of size:\n"
-          f"{chunk_sizes}\n"
-          f"Num 'discard' points per chunk:\n"
-          f"{discard_points}\n"
-          f"Percentage removed points per chunk:\n"
-          f"{[x * 100 / y for x, y in zip(discard_points, chunk_sizes)]}\n"
-          f"x-distance in each chunk:\n"
-          f"{x_distances}\n"
-          f"y-distance in each chunk:\n"
-          f"{y_distances}\n"
-          f"Area of each chunk:\n"
-          f"{areas}")
+    print(
+        f"Split {len(rgb)} points along the x axis into {num_splits if segment_method != 'grid' else num_splits * num_splits} chunks of size:\n"
+        f"{chunk_sizes}\n"
+        f"Num 'discard' points per chunk:\n"
+        f"{discard_points}\n"
+        f"Percentage removed points per chunk:\n"
+        f"{[x * 100 / y for x, y in zip(discard_points, chunk_sizes)]}\n"
+        f"x-distance in each chunk:\n"
+        f"{x_distances}\n"
+        f"y-distance in each chunk:\n"
+        f"{y_distances}\n"
+        f"Area of each chunk:\n"
+        f"{areas}")
 
     # TODO This is 2813036 points (10%)
     # v_chunk = pptk.viewer(xyz[(4943053*2):(4943053*3)], rgb[(4943053*2):(4943053*3)])
