@@ -24,7 +24,7 @@ s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
 
 pointcloud = DataProcessing.load_from_ply(church_file)
 
-pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, 50, segment_method='spatial', sort_axis='x')
+pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, 2, segment_method='grid', sort_axis='x')
 
 # Need it in the format
 # Area_x/Segment_x/Annotations/

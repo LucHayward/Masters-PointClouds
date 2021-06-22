@@ -155,7 +155,7 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
     :return:
     :rtype:
     """
-    assert segment_method in ['uniform', 'spatial']
+    assert segment_method in ['uniform', 'spatial', 'grid']
     # if len(shape) > 3:
     #     print("Cannot use greater than 3 dimensions")
     # TODO refactor sorting
@@ -163,9 +163,9 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
     xyz, intensity, rgb = sort_pointcloud(pointcloud, sort_axis)
 
     # TODO segments are very uneven spatially (first and last cover much more ground)
-    segments, xyz_segments = [], []
+    label_segments, xyz_segments = [], []
     if segment_method == 'uniform':
-        segments = np.array_split(rgb[:, 0].copy(), num_splits)
+        label_segments = np.array_split(rgb[:, 0].copy(), num_splits)
         xyz_segments = np.array_split(xyz.copy(), num_splits)
     elif segment_method == 'spatial':
         total_distances = pointcloud.get_max_bound() - pointcloud.get_min_bound()
@@ -176,24 +176,55 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
         interval_idxs = [find_nearest_id(xyz[:, axis_dict[sort_axis]], v) for v in interval_vals]
 
         # TODO handle splits < 3?
-        segments = [rgb[:interval_idxs[0], 0].copy()] + \
-                   [rgb[interval_idxs[i]:interval_idxs[i + 1], 0].copy() for i in range(len(interval_idxs) - 2)]
-        segments.append(rgb[interval_idxs[-2]:, 0].copy())
+        label_segments = [rgb[:interval_idxs[0], 0].copy()] + \
+                         [rgb[interval_idxs[i]:interval_idxs[i + 1], 0].copy() for i in range(len(interval_idxs) - 2)]
+        label_segments.append(rgb[interval_idxs[-2]:, 0].copy())
         xyz_segments = [xyz[:interval_idxs[0]]].copy() + \
                        [xyz[interval_idxs[i]:interval_idxs[i + 1]].copy() for i in range(len(interval_idxs) - 2)]
         xyz_segments.append(xyz[interval_idxs[-2]:].copy())
+    elif segment_method == 'grid':
+        xyz_max, xyz_min = pointcloud.get_max_bound(), pointcloud.get_min_bound()
+        total_distances = xyz_max - xyz_min
+        intervals = total_distances // num_splits
+        xs = np.arange(pointcloud.get_min_bound()[0], pointcloud.get_max_bound()[0], intervals[0])
+        ys = np.arange(pointcloud.get_min_bound()[1], pointcloud.get_max_bound()[1], intervals[1])
+        grid_shape = (len(xs), len(ys))
+        grid = np.zeros(grid_shape).tolist()
+        total = 0
+        for x in range(num_splits + 1):
+            for y in range(num_splits + 1):
+                grid[x][y] = np.where(
+                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                    (xyz[:, 0] <= (xyz_min[0] + intervals[0] * (x + 1))) &
+                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                    (xyz[:, 1] <= (xyz_min[1] + intervals[1] * (y + 1)))
+                )[0]
+                # total += len(segments[x][y])
+        segments = flatten_list(grid)
+        label_segments = [rgb[s, 0] for s in segments]
+        xyz_segments = [xyz[s] for s in segments]
 
-    chunk_sizes = [len(s) for s in segments]
-    removed_points = [np.sum(s) for s in segments]
+        for g in grid:
+            for gg in g:
+                print(str(len(gg)).ljust(8), end='\t')
+            print()
+
+        grid_mask = np.array([])
+        for val, s in enumerate(segments):
+            grid_mask = np.append(grid_mask, np.full(len(s), val))
+
+    chunk_sizes = [len(s) for s in label_segments]
+    discard_points = [np.sum(s) for s in label_segments]
     x_distances = [seg[:, 0].max() - seg[:, 0].min() for seg in xyz_segments if seg.size > 0]
     y_distances = [seg[:, 1].max() - seg[:, 1].min() for seg in xyz_segments if seg.size > 0]
-    areas = [(seg[:, 1].max() - seg[:, 1].min()) * (seg[:, 0].max() - seg[:, 0].min()) for seg in xyz_segments if seg.size > 0]
-    print(f"Split {len(rgb)} points along the x axis into {num_splits} chunks of size:\n"
+    areas = [(seg[:, 1].max() - seg[:, 1].min()) * (seg[:, 0].max() - seg[:, 0].min()) for seg in xyz_segments if
+             seg.size > 0]
+    print(f"Split {len(rgb)} points along the x axis into {num_splits if segment_method != 'grid' else num_splits*num_splits} chunks of size:\n"
           f"{chunk_sizes}\n"
-          f"Num 'removed' points per chunk:\n"
-          f"{removed_points}\n"
+          f"Num 'discard' points per chunk:\n"
+          f"{discard_points}\n"
           f"Percentage removed points per chunk:\n"
-          f"{[x*100/y for x,y in zip(removed_points,chunk_sizes)]}\n"
+          f"{[x * 100 / y for x, y in zip(discard_points, chunk_sizes)]}\n"
           f"x-distance in each chunk:\n"
           f"{x_distances}\n"
           f"y-distance in each chunk:\n"
@@ -203,15 +234,12 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
 
     # TODO This is 2813036 points (10%)
     # v_chunk = pptk.viewer(xyz[(4943053*2):(4943053*3)], rgb[(4943053*2):(4943053*3)])
-    segments_old = [len(segments)]
-    for i in range(len(segments)):
+    segments_old = [len(label_segments)]
+    for i in range(len(label_segments)):
         # segments_old.append(np.copy(segments[i]))
-        segments[i].fill(i)
+        label_segments[i].fill(i)
 
-    return convert_to_pointcloud(xyz, intensity, rgb), segments
-
-
-
+    return convert_to_pointcloud(xyz, intensity, rgb), label_segments
 
 
 def sample_pointcloud(pcd, num_points, segments=None):
