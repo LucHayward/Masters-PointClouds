@@ -3,6 +3,7 @@ import open3d as o3d
 from pathlib import Path
 
 from scipy import stats
+from tqdm import tqdm
 
 axis_dict = {'x': 0, 'y': 1, 'z': 2}
 
@@ -274,9 +275,10 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
         grid_shape = (len(xs) - 1, len(ys) - 1)
         grid = np.zeros(grid_shape).tolist()  # Contains all the point_idxs for that grid cell
         total = 0
-        for x in range(num_splits):
+        # TODO improve speed
+        for x in tqdm(range(num_splits), desc='Outer loop'):
             for y in range(num_splits):
-                print(f'cell ({x},{y})')
+                # print(f'cell ({x},{y})')
                 if x == num_splits - 1:
                     grid[x][y] = np.where(
                         (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
@@ -305,7 +307,7 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
                     # print(f'{(xyz_min[0] + intervals[0] * x):.4f}<=x<={(xyz_min[0] + intervals[0] * (x + 1)):.4f}\n'
                     #       f'{(xyz_min[1] + intervals[1] * y):.4f}<=y<={(xyz_min[1] + intervals[1] * (y + 1)):.4f}')
                 total += len(grid[x][y])
-                print(f'points = {len(grid[x][y])}\n')
+                # print(f'points = {len(grid[x][y])}\n')
 
         assert total == len(xyz), "Change the grid splitting code in DataProcessing"
         segments = flatten_list(grid)

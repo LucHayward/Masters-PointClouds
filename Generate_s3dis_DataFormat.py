@@ -254,15 +254,19 @@ xyz, intensity, rgb = DataProcessing.convert_to_arrays(pointcloud)
 import pptk
 
 v = pptk.viewer(xyz, rgb[:, 0], DataProcessing.flatten_list(segments))
-# class_sorted_indices = rgb[:, 0].argsort()
-# xyz, intensity, rgb = xyz[class_sorted_indices], intensity[class_sorted_indices], rgb[class_sorted_indices]
+v.color_map(turbo_colormap_data)
+
 print(f'Num Total points: {len(rgb)}\nNum Total Discard points: {rgb[:, 0].sum()} ')
 discarded_points = []
 cnt = 0
 for seg in segments:
     discarded_points.append(np.sum(rgb[cnt:cnt + len(seg), 0]))
     cnt += len(seg)
-print(f"Discarded points per segment:\n{discarded_points}")
+print(f"Discarded points per segment:\n")
+for s, d in enumerate(discarded_points):
+    print(s, d, sep=' : ')
+
+
 
 discard_cnt = 0
 point_id = 0
