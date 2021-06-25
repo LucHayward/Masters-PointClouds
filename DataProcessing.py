@@ -327,8 +327,8 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
             grid_mask[grid_mask == v] = i
 
         import pptk
-        v = pptk.viewer(xyz, grid_mask, rgb[:, 0])
-        v.color_map(turbo_colormap_data)
+        # v = pptk.viewer(xyz, grid_mask, rgb[:, 0])
+        # v.color_map(turbo_colormap_data)
         # sorted_idxs = grid_mask.argsort()
 
         # return convert_to_pointcloud(xyz[sorted_idxs], intensity[sorted_idxs], rgb[sorted_idxs]), np.split(grid_mask, np.cumsum([len(s) for s in segments]))[:-1]

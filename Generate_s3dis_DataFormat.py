@@ -111,18 +111,10 @@ s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
 pointcloud = DataProcessing.load_from_ply(church_file)
 
 SEGMENT_METHOD = 'grid'
-NUM_SPLITS = 4
+NUM_SPLITS = 10
 
 pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, NUM_SPLITS, segment_method=SEGMENT_METHOD,
                                                          sort_axis='x')
-
-# Need it in the format
-# Area_x/Segment_x/Annotations/
-# Area_x/Segment_x/Annotations/keep.txt
-# Area_x/Segment_x/Annotations/discard.txt
-# Area_x/Segment_x/Segment_x.txt
-#
-
 
 # TODO implement this better (spread center data around) and add to dataprocessing
 #  changed to using 1024 because I want dinner
@@ -237,10 +229,6 @@ else:
         col_id += 1
         print()
 
-# import copy
-# segments = copy.deepcopy(segs)
-# for s_id, s in enumerate(segments):
-#     s.fill(s_id)
 segments = np.zeros(len(pointcloud.points))
 for val, s in enumerate(segs):
     segments[s] = val
@@ -253,56 +241,40 @@ xyz, intensity, rgb = DataProcessing.convert_to_arrays(pointcloud)
 
 import pptk
 
-v = pptk.viewer(xyz, rgb[:, 0], DataProcessing.flatten_list(segments))
+flat_segments = np.array(DataProcessing.flatten_list(segments))
+sorted_seg_idxs = np.argsort(flat_segments)
+xzy, rgb, intensity, flat_segments = xyz[sorted_seg_idxs], rgb[sorted_seg_idxs], intensity[sorted_seg_idxs], \
+                                     flat_segments[sorted_seg_idxs]
+v = pptk.viewer(xyz, rgb[:, 0], flat_segments)
 v.color_map(turbo_colormap_data)
 
 print(f'Num Total points: {len(rgb)}\nNum Total Discard points: {rgb[:, 0].sum()} ')
 discarded_points = []
 cnt = 0
-for seg in segments:
-    discarded_points.append(np.sum(rgb[cnt:cnt + len(seg), 0]))
-    cnt += len(seg)
+for seg_id in range(len(segments)):
+    discarded_points.append(np.sum(rgb[np.where(flat_segments == seg_id), 0]))
+
 print(f"Discarded points per segment:\n")
 for s, d in enumerate(discarded_points):
     print(s, d, sep=' : ')
 
-
-
-discard_cnt = 0
+# For each segment, write each point as xyzigbl
 point_id = 0
-# TODO remove all files in folders below before running
-# TODO Allow for single scan to = multiplea areas
-# Write the data out pointwise into keep/discard files and replace rgb with IntensityGB
-meta_dir = s3dis_data_format_dir.joinpath(f'../meta_{args.dataset}'.lower())
-meta_dir.mkdir(exist_ok=True, parents=True)
-with open(meta_dir.joinpath('anno_paths.txt'), 'w+') as anno_paths_outfile, \
-        open(meta_dir.joinpath('class_names.txt'), 'w+') as class_names_outfile:
-    class_names_outfile.write('keep\ndiscard')
+discard_cnt = 0
+seg_start_idx, seg_end_idx = 0, 0
+for segment_id, segment in enumerate(tqdm(segments)):
+    segment_id += 1
+    validation_split = 5
+    area = 1 if segment_id % validation_split != 0 else 2
+    out_filename = f'Area_{area}_segment_{segment_id}.npy'
+    seg_start_idx, seg_end_idx = seg_end_idx, seg_end_idx + segment.size
 
-    for segment_id in tqdm(range(len(segments))):
-        segment_dir = s3dis_data_format_dir.joinpath(area_map.get(args.dataset), f'segment_{segment_id + 1}')
-        annotations_dir = segment_dir.joinpath('Annotations/')
-        annotations_dir.mkdir(exist_ok=True, parents=True)
-
-        with open(annotations_dir.joinpath('keep_1.txt'), 'w+') as keep_outfile, \
-                open(annotations_dir.joinpath('discard_1.txt'), 'w+') as discard_outfile, \
-                open(segment_dir.joinpath(f'segment_{segment_id + 1}.txt'), 'w+') as points_outfile:
-
-            anno_paths_outfile.write(f'{area_map.get(args.dataset)}/segment_{segment_id + 1}/Annotations\n')
-
-            for point in xyz[point_id:point_id + segments[segment_id].size - 1]:
-                point_id += 1
-                # Multiply IGB data by 255 as s3dis expects prenormalised input
-                points_outfile.write(
-                    f'{point[0]} {point[1]} {point[2]} {intensity[point_id] * 255} {rgb[point_id, 1] * 255} {rgb[point_id, 2] * 255}\n')
-                if rgb[point_id, 0] == 0:
-                    keep_outfile.write(
-                        f'{point[0]} {point[1]} {point[2]} {intensity[point_id] * 255} {rgb[point_id, 1] * 255} {rgb[point_id, 2] * 255}\n')
-                else:
-                    discard_cnt += 1
-                    discard_outfile.write(
-                        f'{point[0]} {point[1]} {point[2]} {intensity[point_id] * 255} {rgb[point_id, 1] * 255} {rgb[point_id, 2] * 255}\n')
-
-print(f'Discard count = {discard_cnt}')
+    seg_xyz_min = np.amin(xyz[seg_start_idx:seg_end_idx], axis=0)  # set min value at origin
+    seg_data = np.hstack((xyz[seg_start_idx:seg_end_idx], intensity[seg_start_idx:seg_end_idx, None],
+                          rgb[seg_start_idx:seg_end_idx, 1:], rgb[seg_start_idx:seg_end_idx, 0][..., None]))
+    seg_data[:, :3] -= seg_xyz_min
+    v = pptk.viewer(seg_data[:, :3], seg_data[:, -1])
+    v.color_map(turbo_colormap_data)
+    np.save(s3dis_data_format_dir / out_filename, seg_data)
 
 print("Done")
