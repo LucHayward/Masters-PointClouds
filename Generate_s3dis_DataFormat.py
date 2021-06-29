@@ -243,10 +243,10 @@ import pptk
 
 flat_segments = np.array(DataProcessing.flatten_list(segments))
 sorted_seg_idxs = np.argsort(flat_segments)
-xzy, rgb, intensity, flat_segments = xyz[sorted_seg_idxs], rgb[sorted_seg_idxs], intensity[sorted_seg_idxs], \
+xyz, rgb, intensity, flat_segments = xyz[sorted_seg_idxs], rgb[sorted_seg_idxs], intensity[sorted_seg_idxs], \
                                      flat_segments[sorted_seg_idxs]
-v = pptk.viewer(xyz, rgb[:, 0], flat_segments)
-v.color_map(turbo_colormap_data)
+# v = pptk.viewer(xyz, rgb[:, 0], flat_segments)
+# v.color_map(turbo_colormap_data)
 
 print(f'Num Total points: {len(rgb)}\nNum Total Discard points: {rgb[:, 0].sum()} ')
 discarded_points = []
@@ -273,8 +273,8 @@ for segment_id, segment in enumerate(tqdm(segments)):
     seg_data = np.hstack((xyz[seg_start_idx:seg_end_idx], intensity[seg_start_idx:seg_end_idx, None],
                           rgb[seg_start_idx:seg_end_idx, 1:], rgb[seg_start_idx:seg_end_idx, 0][..., None]))
     seg_data[:, :3] -= seg_xyz_min
-    v = pptk.viewer(seg_data[:, :3], seg_data[:, -1])
-    v.color_map(turbo_colormap_data)
+    # v = pptk.viewer(seg_data[:, :3], seg_data[:, -1])
+    # v.color_map(turbo_colormap_data)
     np.save(s3dis_data_format_dir / out_filename, seg_data)
 
 print("Done")
