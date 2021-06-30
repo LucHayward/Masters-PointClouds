@@ -270,8 +270,8 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
         intervals = total_distances / num_splits
         # xs = np.arange(pointcloud.get_min_bound()[0], pointcloud.get_max_bound()[0], intervals[0])
         # ys = np.arange(pointcloud.get_min_bound()[1], pointcloud.get_max_bound()[1], intervals[1])
-        xs = np.linspace(pointcloud.get_min_bound()[0], pointcloud.get_max_bound()[0], num_splits+1)
-        ys = np.linspace(pointcloud.get_min_bound()[1], pointcloud.get_max_bound()[1], num_splits+1)
+        xs = np.linspace(pointcloud.get_min_bound()[0], pointcloud.get_max_bound()[0], num_splits + 1)
+        ys = np.linspace(pointcloud.get_min_bound()[1], pointcloud.get_max_bound()[1], num_splits + 1)
         grid_shape = (len(xs) - 1, len(ys) - 1)
         grid = np.zeros(grid_shape).tolist()  # Contains all the point_idxs for that grid cell
         fill_grid(grid, intervals, num_splits, xyz, xyz_min)
@@ -288,7 +288,7 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
         grid_mask = np.zeros(len(xyz))
         for val, s in enumerate(segments):
             grid_mask[s] = val
-        for i,v in enumerate(np.unique(grid_mask)):
+        for i, v in enumerate(np.unique(grid_mask)):
             grid_mask[grid_mask == v] = i
 
         import pptk
@@ -334,30 +334,26 @@ def fill_grid(grid, intervals, num_splits, xyz, xyz_min):
     # TODO improve speed
     is_sorted = lambda a: np.all(a[:-1] <= a[1:])
     # TODO: Try sort on X (done) then find nearest sorted for each interval, then repeat but on Y
-    # split_points = [find_nearest_id(xyz)]
-    for x in tqdm(range(num_splits), desc='Outer loop'):
+    split_points = [find_nearest_id(xyz[:, 0], xyz_min[0] + intervals[0] * i) for i in range(1,num_splits)]
+    x_start = 0
+    for x, x_end in tqdm(enumerate(split_points), desc='Outer loop'):
         for y in range(num_splits):
-            # print(f'cell ({x},{y})')
             if x == num_splits - 1:
                 grid[x][y] = np.where(
-                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
-                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
-                    (xyz[:, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
+                    (xyz[x_start:x_end, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                    (xyz[x_start:x_end, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
                 )[0]
             elif y == num_splits - 1:
                 grid[x][y] = np.where(
-                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
-                    (xyz[:, 0] < (xyz_min[0] + intervals[0] * (x + 1))) &
-                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y))
+                    (xyz[x_start:x_end, 1] >= (xyz_min[1] + intervals[1] * y))
                 )[0]
             else:
                 grid[x][y] = np.where(
-                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
-                    (xyz[:, 0] < (xyz_min[0] + intervals[0] * (x + 1))) &
-                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
-                    (xyz[:, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
+                    (xyz[x_start:x_end, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                    (xyz[x_start:x_end, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
                 )[0]
             total += len(grid[x][y])
+        x_start = x_end
     assert total == len(xyz), "Change the grid splitting code in DataProcessing"
 
 

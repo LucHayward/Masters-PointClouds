@@ -111,7 +111,7 @@ s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
 pointcloud = DataProcessing.load_from_ply(church_file)
 
 SEGMENT_METHOD = 'grid'
-NUM_SPLITS = 10
+NUM_SPLITS = 4
 
 pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, NUM_SPLITS, segment_method=SEGMENT_METHOD,
                                                          sort_axis='x')
