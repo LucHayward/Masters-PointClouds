@@ -334,26 +334,30 @@ def fill_grid(grid, intervals, num_splits, xyz, xyz_min):
     # TODO improve speed
     is_sorted = lambda a: np.all(a[:-1] <= a[1:])
     # TODO: Try sort on X (done) then find nearest sorted for each interval, then repeat but on Y
-    split_points = [find_nearest_id(xyz[:, 0], xyz_min[0] + intervals[0] * i) for i in range(1,num_splits)]
-    x_start = 0
-    for x, x_end in tqdm(enumerate(split_points), desc='Outer loop'):
+    # split_points = [find_nearest_id(xyz)]
+    for x in tqdm(range(num_splits), desc='Outer loop'):
         for y in range(num_splits):
+            # print(f'cell ({x},{y})')
             if x == num_splits - 1:
                 grid[x][y] = np.where(
-                    (xyz[x_start:x_end, 1] >= (xyz_min[1] + intervals[1] * y)) &
-                    (xyz[x_start:x_end, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
+                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                    (xyz[:, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
                 )[0]
             elif y == num_splits - 1:
                 grid[x][y] = np.where(
-                    (xyz[x_start:x_end, 1] >= (xyz_min[1] + intervals[1] * y))
+                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                    (xyz[:, 0] < (xyz_min[0] + intervals[0] * (x + 1))) &
+                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y))
                 )[0]
             else:
                 grid[x][y] = np.where(
-                    (xyz[x_start:x_end, 1] >= (xyz_min[1] + intervals[1] * y)) &
-                    (xyz[x_start:x_end, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
+                    (xyz[:, 0] >= (xyz_min[0] + intervals[0] * x)) &
+                    (xyz[:, 0] < (xyz_min[0] + intervals[0] * (x + 1))) &
+                    (xyz[:, 1] >= (xyz_min[1] + intervals[1] * y)) &
+                    (xyz[:, 1] < (xyz_min[1] + intervals[1] * (y + 1)))
                 )[0]
             total += len(grid[x][y])
-        x_start = x_end
     assert total == len(xyz), "Change the grid splitting code in DataProcessing"
 
 

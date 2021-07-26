@@ -111,7 +111,7 @@ s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
 pointcloud = DataProcessing.load_from_ply(church_file)
 
 SEGMENT_METHOD = 'grid'
-NUM_SPLITS = 4
+NUM_SPLITS = 10
 
 pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, NUM_SPLITS, segment_method=SEGMENT_METHOD,
                                                          sort_axis='x')
@@ -245,8 +245,8 @@ flat_segments = np.array(DataProcessing.flatten_list(segments))
 sorted_seg_idxs = np.argsort(flat_segments)
 xyz, rgb, intensity, flat_segments = xyz[sorted_seg_idxs], rgb[sorted_seg_idxs], intensity[sorted_seg_idxs], \
                                      flat_segments[sorted_seg_idxs]
-# v = pptk.viewer(xyz, rgb[:, 0], flat_segments)
-# v.color_map(turbo_colormap_data)
+v = pptk.viewer(xyz, rgb[:, 0], flat_segments)
+v.color_map(turbo_colormap_data)
 
 print(f'Num Total points: {len(rgb)}\nNum Total Discard points: {rgb[:, 0].sum()} ')
 discarded_points = []
@@ -263,7 +263,7 @@ point_id = 0
 discard_cnt = 0
 seg_start_idx, seg_end_idx = 0, 0
 for segment_id, segment in enumerate(tqdm(segments)):
-    segment_id += 1
+    # segment_id += 1
     validation_split = 5
     area = 1 if segment_id % validation_split != 0 else 2
     out_filename = f'Area_{area}_segment_{segment_id}.npy'
@@ -272,7 +272,7 @@ for segment_id, segment in enumerate(tqdm(segments)):
     seg_xyz_min = np.amin(xyz[seg_start_idx:seg_end_idx], axis=0)  # set min value at origin
     seg_data = np.hstack((xyz[seg_start_idx:seg_end_idx], intensity[seg_start_idx:seg_end_idx, None],
                           rgb[seg_start_idx:seg_end_idx, 1:], rgb[seg_start_idx:seg_end_idx, 0][..., None]))
-    seg_data[:, :3] -= seg_xyz_min
+    # seg_data[:, :3] -= seg_xyz_min
     # v = pptk.viewer(seg_data[:, :3], seg_data[:, -1])
     # v.color_map(turbo_colormap_data)
     np.save(s3dis_data_format_dir / out_filename, seg_data)
