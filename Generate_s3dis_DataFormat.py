@@ -263,7 +263,7 @@ point_id = 0
 discard_cnt = 0
 seg_start_idx, seg_end_idx = 0, 0
 for segment_id, segment in enumerate(tqdm(segments)):
-    # segment_id += 1
+    segment_id += 1
     validation_split = 5
     area = 1 if segment_id % validation_split != 0 else 2
     out_filename = f'Area_{area}_segment_{segment_id}.npy'
