@@ -106,12 +106,12 @@ church_file = Path('../../PatrickData/Church/Church.ply')
 songo_mnara_file = Path('../../PatrickData/SongoMnara/SongoMnara.ply')
 # songo_mnara_uds5_file = Path('Data/SongoMnara/SongoMnara_uds5.ply')
 songo_mnara_uds5_file = Path('../../PatrickData/SongoMnara/SongoMnara_uds5.ply')
-s3dis_data_format_dir = Path('../../PatrickData/Church/s3disFormat')
+s3dis_data_format_dir = Path('../../PatrickData/SongoMnara/s3disFormat')
 
-pointcloud = DataProcessing.load_from_ply(church_file)
+pointcloud = DataProcessing.load_from_ply(songo_mnara_uds5_file)
 
 SEGMENT_METHOD = 'grid'
-NUM_SPLITS = 10
+NUM_SPLITS = 5
 
 pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, NUM_SPLITS, segment_method=SEGMENT_METHOD,
                                                          sort_axis='x')
@@ -269,7 +269,7 @@ for segment_id, segment in enumerate(tqdm(segments)):
     out_filename = f'Area_{area}_segment_{segment_id}.npy'
     seg_start_idx, seg_end_idx = seg_end_idx, seg_end_idx + segment.size
 
-    seg_xyz_min = np.amin(xyz[seg_start_idx:seg_end_idx], axis=0)  # set min value at origin
+    # seg_xyz_min = np.amin(xyz[seg_start_idx:seg_end_idx], axis=0)  # set min value at origin
     seg_data = np.hstack((xyz[seg_start_idx:seg_end_idx], intensity[seg_start_idx:seg_end_idx, None],
                           rgb[seg_start_idx:seg_end_idx, 1:], rgb[seg_start_idx:seg_end_idx, 0][..., None]))
     # seg_data[:, :3] -= seg_xyz_min
