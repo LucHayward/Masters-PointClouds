@@ -114,7 +114,7 @@ def main():
     pointcloud = DataProcessing.load_from_ply(church_file)
 
     SEGMENT_METHOD = 'grid'
-    NUM_SPLITS = 5
+    NUM_SPLITS = 10
 
     pointcloud, segments = DataProcessing.segment_pointcloud(pointcloud, NUM_SPLITS, segment_method=SEGMENT_METHOD,
                                                              sort_axis='x')
@@ -261,7 +261,7 @@ def main():
     for s, d in enumerate(discarded_points):
         print(s, d, sep=' : ')
 
-    # For each segment, write each point as xyzigbl
+    # For each segment, write each point as xyzl
     point_id = 0
     discard_cnt = 0
     seg_start_idx, seg_end_idx = 0, 0

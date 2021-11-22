@@ -97,7 +97,7 @@ turbo_colormap_data = [[0.18995, 0.07176, 0.23217], [0.19483, 0.08339, 0.26149],
 
 """
 Given a pointcloud
-segment the pointcloud into N chunks of size KxK columns (aka a convolution?) TODO: refactor block size
+segment the pointcloud into N chunks of size KxK columns
 - Sort the points on the X axis
 - Split into rows
 - Sort each row on the Y axis
@@ -105,3 +105,46 @@ segment the pointcloud into N chunks of size KxK columns (aka a convolution?) TO
 - Use this as your grid of columns
 Output each column as a segment in the area tagged train/valid/test_N
 """
+
+rng = default_rng()
+
+area_map = {'Church': 'Area_1',
+            'SongoMnara': 'Area_2'}
+
+# macos files
+# church_file = Path('Data/Church/Church.ply')
+# songo_mnara_file = Path('Data/SongoMnara/SongoMnara.ply')
+# songo_mnara_uds5_file = Path('Data/SongoMnara/SongoMnara_uds5.ply')ne
+
+AREA = 'Church'
+# AREA = 'SongoMnara'
+
+SEGMENT_METHOD = 'columns'
+# NUM_SPLITS = 10
+COLUMN_SIZE = 5
+
+church_file = Path('../../PatrickData/Church/Church.ply')
+songo_mnara_file = Path('../../PatrickData/SongoMnara/SongoMnara.ply')
+songo_mnara_uds5_file = Path('../../PatrickData/SongoMnara/SongoMnara_uds5.ply')
+songo_mnara_voxel01_file = Path('../../PatrickData/SongoMnara/SongoMnara_voxel01.ply')
+masters_data_dir = Path(f'../../PatrickData/{AREA}/MastersFormat')
+
+
+def main():
+    pointcloud = DataProcessing.load_from_ply(church_file)
+    xyz, intensity, rgb, segments, grid_mask = DataProcessing.segment_pointcloud(pointcloud,
+                                                                                 segment_method=SEGMENT_METHOD,
+                                                                                 column_size=COLUMN_SIZE)
+
+    # For each segment, write each point as xyzil
+    for segment_id in tqdm(np.unique(grid_mask)):
+        segment_id = int(segment_id)
+        out_filename = f"{AREA}_segment_{segment_id}.npy"
+        segment_data = np.hstack(
+            (xyz[np.where(grid_mask == segment_id)], intensity[np.where(grid_mask == segment_id)][..., None],
+             rgb[np.where(grid_mask == segment_id), 0].T))
+        np.save(masters_data_dir / out_filename, segment_data)
+
+
+if __name__ == '__main__':
+    main()

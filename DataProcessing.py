@@ -111,7 +111,8 @@ def load_from_ply(file):
 
 def load_from_ptx(file_list):
     """
-    Loads data from the give ptx files into memory. Converts red channel to 0/255
+    Loads data from the give ptx files into memory. Converts red channel to 0/255.
+    Removes origin points (no-return)
     :param file_list: PathLib ptx files
     :return: xyz, intensity and rgb
     """
@@ -228,16 +229,17 @@ def remove_zero_points(pointcloud):
 
 # TODO: allow shape
 # def segment_pointcloud(pointcloud, shape):
-def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_axis='x'):
+def segment_pointcloud(pointcloud, num_splits=None, segment_method='uniform', sort_axis='x', column_size=None):
     """
 
+    :param column_size: If splitting the data into columns in the XY plane, the size of the square column to use.
     :param pointcloud:
     :param num_splits:
-    :param segment_method: ['uniform', 'spatial', 'grid']
+    :param segment_method: ['uniform', 'spatial', 'grid','columns']
     :param sort_axis:
     :return: Pointcloud, list of segment_ids
     """
-    assert segment_method in ['uniform', 'spatial', 'grid']
+    assert segment_method in ['uniform', 'spatial', 'grid', 'columns']
     # if len(shape) > 3:
     #     print("Cannot use greater than 3 dimensions")
     # TODO refactor sorting
@@ -292,12 +294,64 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
             grid_mask[grid_mask == v] = i
 
         import pptk
-        # v = pptk.viewer(xyz, grid_mask, rgb[:, 0])
+        # v = pptk.viewer(xyz, rgb[:, 0], grid_mask)
         # v.color_map(turbo_colormap_data)
         # sorted_idxs = grid_mask.argsort()
 
         # return convert_to_pointcloud(xyz[sorted_idxs], intensity[sorted_idxs], rgb[sorted_idxs]), np.split(grid_mask, np.cumsum([len(s) for s in segments]))[:-1]
         return convert_to_pointcloud(xyz, intensity, rgb), segments
+    elif segment_method == 'columns':
+        """
+        Split the data into column_size chunks
+        Get the number of columns required
+        """
+        xyz_max, xyz_min = pointcloud.get_max_bound(), pointcloud.get_min_bound()
+        total_distances = xyz_max - xyz_min
+        grid_min, grid_max = np.floor(xyz_min), np.ceil(xyz_max)
+        # num_columns = np.ceil(total_distances / column_size)  # could round/floor/ceil this.
+        num_columns = np.ceil((grid_max - grid_min) / column_size)  # could round/floor/ceil this.
+
+        grid_shape = (np.int(num_columns[0]), np.int(num_columns[1]))
+        grid = np.zeros(grid_shape).tolist()  # Contains all the point_idxs for that grid cell
+        xs = np.linspace(np.int(grid_min[0]), np.int(grid_max[0]), np.int(num_columns[0] + 1))
+        ys = np.linspace(np.int(grid_min[1]), np.int(grid_max[1]), np.int(num_columns[1] + 1))
+        print(f"Grid shape: {grid_shape}")
+        # Into each grid cell place all the points which fall within the interval
+        for i, x_upper_bound in enumerate(tqdm(xs)):
+            if i == 0: continue
+            gt_xlower_bound = (xyz[:, 0] >= xs[i - 1])
+            lt_xupper_bound = (xyz[:, 0] < x_upper_bound)
+            for j, y_upper_bound in enumerate(ys):
+                if j == 0: continue
+                gt_ylower_bound = (xyz[:, 1] >= ys[j - 1])
+                lt_yupper_bound = (xyz[:, 1] < y_upper_bound)
+                grid[i - 1][j - 1] = np.where(gt_xlower_bound & lt_xupper_bound & gt_ylower_bound & lt_yupper_bound)[0]
+
+        segments = flatten_list(grid)
+        sum_segments_length = 0
+        max_nums = 0
+        for s in segments:
+            sum_segments_length += len(s)
+            if len(str(len(s))) > max_nums: max_nums = len(str(len(s)))
+        assert sum_segments_length == len(xyz), "Did not capture all points into segments"
+        print("DEBUG: Grid cell totals")
+        for row in reversed(range(len(grid[0]))):
+            for col in range(len(grid)):
+                if len(grid[col][row]) == 0:
+                    print("".ljust(max_nums + 1
+                                   ), end=' ')
+                else:
+                    print(str(len(grid[col][row])).ljust(8), end=' ')
+            print()
+
+        grid_mask = np.zeros(len(xyz))
+        for val, s in enumerate(segments):
+            grid_mask[s] = val
+        for i, v in enumerate(np.unique(grid_mask)):
+            grid_mask[grid_mask == v] = i
+            grid_mask[grid_mask == v] = i
+
+        return xyz, intensity, rgb, segments, grid_mask
 
     chunk_sizes = [len(s) for s in label_segments]
     discard_points = [np.sum(s) for s in label_segments]
@@ -327,6 +381,10 @@ def segment_pointcloud(pointcloud, num_splits, segment_method='uniform', sort_ax
         label_segments[i].fill(i)
 
     return convert_to_pointcloud(xyz, intensity, rgb), label_segments
+
+
+def is_increasing(a: np.ndarray) -> bool:
+    return np.all(np.diff(a) >= 0)
 
 
 def fill_grid(grid, intervals, num_splits, xyz, xyz_min):
