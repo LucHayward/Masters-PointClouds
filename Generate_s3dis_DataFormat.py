@@ -104,11 +104,14 @@ area_map = {'Church': 'Area_1',
 church_file = Path('../../PatrickData/Church/Church.ply')
 # songo_mnara_file = Path('Data/SongoMnara/SongoMnara.ply')
 songo_mnara_file = Path('../../PatrickData/SongoMnara/SongoMnara.ply')
-# songo_mnara_uds5_file = Path('Data/SongoMnara/SongoMnara_uds5.ply')ne
+# songo_mnara_uds5_file = Path('Data/SongoMnara/SongoMnara_uds5.ply')
 songo_mnara_uds5_file = Path('../../PatrickData/SongoMnara/SongoMnara_uds5.ply')
 songo_mnara_voxel01_file = Path('../../PatrickData/SongoMnara/SongoMnara_voxel01.ply')
 s3dis_data_format_dir = Path('../../PatrickData/SongoMnara/s3disFormat')
 
+# macos
+church_file = Path('/Users/luc/Development/PycharmProjects/Masters-PointClouds/Data/Church/Church.ply')
+s3dis_data_format_dir = Path('/Users/luc/Development/PycharmProjects/Masters-PointClouds/Data/Church')
 
 def main():
     pointcloud = DataProcessing.load_from_ply(church_file)
