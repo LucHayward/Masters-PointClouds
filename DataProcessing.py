@@ -227,21 +227,21 @@ def remove_zero_points(pointcloud):
     return remove_xyz_points(pointcloud, (0, 0, 0))
 
 
-def test_split_grid(num_points=1000, shape=(3, 3,), value_range=100, visualise_pptk=True):
+def test_split_grid(num_points=1000, grid_shape=(3, 3,), value_range=100, visualise_pptk=True):
     """
     Generate a cloud of random points and segment it into a grid.
     :param num_points: number of points to sample
-    :param shape: The number of cells in each row/column
+    :param grid_shape: The number of cells in each row/column
     :param value_range: xy value upper bound [0,value_range)
     :param visualise_pptk: visualise the resulting point grid using pptk
     :return:
     """
-    points = np.random.randint(0, value_range, (num_points, 3))
-    points, grid_mask = split_grid(points, shape)
+    points = np.random.randint(0, value_range, (num_points, 7))
+    points, grid_mask = split_grid(points, grid_shape)
 
     if visualise_pptk:
         import pptk
-        v = pptk.viewer(points, grid_mask)
+        v = pptk.viewer(points[:, :3], grid_mask)
         v.set(point_size=.1)
         v.color_map(turbo_colormap_data)
 
@@ -250,7 +250,7 @@ def split_grid(points, grid_shape):
     """
     Split the points into a grid pattern
     :param points: (n,7) array of points (XYZIRGB)
-    :param grid_shape: (x,y,) tuple of grid shape
+    :param grid_shape: (x,y,) tuple of grid grid_shape
     :return: modified points array, grid_mask
     """
     # Sort and split array along x-axis
@@ -290,7 +290,7 @@ def segment_pointcloud(pointcloud, num_splits=None, segment_method='uniform', so
     :return: Pointcloud, list of segment_ids
     """
     assert segment_method in ['uniform', 'spatial', 'grid', 'columns']
-    # if len(shape) > 3:
+    # if len(grid_shape) > 3:
     #     print("Cannot use greater than 3 dimensions")
     # TODO refactor sorting
     print(f"Splitting pointcloud in {num_splits if segment_method != 'grid' else num_splits * num_splits}")
@@ -365,7 +365,7 @@ def segment_pointcloud(pointcloud, num_splits=None, segment_method='uniform', so
         grid = np.zeros(grid_shape).tolist()  # Contains all the point_idxs for that grid cell
         xs = np.linspace(np.int(grid_min[0]), np.int(grid_max[0]), np.int(num_columns[0] + 1))
         ys = np.linspace(np.int(grid_min[1]), np.int(grid_max[1]), np.int(num_columns[1] + 1))
-        print(f"Grid shape: {grid_shape}")
+        print(f"Grid grid_shape: {grid_shape}")
         # Into each grid cell place all the points which fall within the interval
         for i, x_upper_bound in enumerate(tqdm(xs)):
             if i == 0: continue
@@ -502,6 +502,7 @@ def generate_segment_mask(size, splits):
 
 
 def convert_to_arrays(pointcloud):
+    """:returns XYZ, intensity, RGB"""
     return np.asarray(pointcloud.points), np.asarray(pointcloud.normals)[:, 0], np.asarray(pointcloud.colors)
 
 
