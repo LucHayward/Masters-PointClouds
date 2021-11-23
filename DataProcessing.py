@@ -279,25 +279,29 @@ def split_grid(points, grid_shape):
     return points[:, :-1], points[:, -1]
 
 
-def visualise_grid_mask(grid_mask, shape):
+def visualise_grid_mask(grid_mask, grid_shape):
     """
     Show a 3D barplot of the grid_mask cell densities
     :param grid_mask:
-    :param shape:
+    :param grid_shape:
     """
     import matplotlib.pyplot as plt
     fig = plt.figure()
     ax1 = fig.add_subplot(111, projection='3d')
-    _x = np.arange(shape[0])
-    _y = np.arange(shape[1])
+    _x = np.arange(grid_shape[0])
+    _y = np.arange(grid_shape[1])
     _xx, _yy = np.meshgrid(_x, _y)
     x, y = _xx.ravel(), _yy.ravel()
 
-    top = np.unique(grid_mask, return_counts=True)[1]
+    top = np.zeros_like(x)
+    idx, cnt = np.unique(grid_mask, return_counts=True)
+    idx = idx.astype(int)
+    top[idx-1] += cnt
+
     bottom = np.zeros_like(top)
     width = depth = 1
 
-    ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
+    ax1.bar3d(x, y, bottom, width, depth, top, shade=True,)
     plt.show()
 
 
