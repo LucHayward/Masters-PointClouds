@@ -227,7 +227,7 @@ def remove_zero_points(pointcloud):
     return remove_xyz_points(pointcloud, (0, 0, 0))
 
 
-def test_split_grid(num_points=1000, grid_shape=(3, 3,), value_range=100, visualise_pptk=True):
+def test_split_grid_shape(num_points=1000, grid_shape=(3, 3,), value_range=100, visualise_pptk=True):
     """
     Generate a cloud of random points and segment it into a grid.
     :param num_points: number of points to sample
@@ -237,16 +237,37 @@ def test_split_grid(num_points=1000, grid_shape=(3, 3,), value_range=100, visual
     :return:
     """
     points = np.random.randint(0, value_range, (num_points, 7))
-    points, grid_mask = split_grid(points, grid_shape)
+    points, grid_mask = split_grid_shape(points, grid_shape)
 
     if visualise_pptk:
         import pptk
         v = pptk.viewer(points[:, :3], grid_mask)
         v.set(point_size=.1)
         v.color_map(turbo_colormap_data)
+    return points, grid_mask
 
 
-def split_grid(points, grid_shape):
+def test_split_grid_size(num_points=1000, cell_size=5, value_range=100, visualise_pptk=True):
+    points = np.random.randint(0, value_range, (num_points, 7))
+    total_distances = points[:, :2].max(axis=0) - points[:, :2].min(axis=0)
+    approx_grid_shape = np.ceil(total_distances / cell_size).astype(int)
+    return test_split_grid_shape(num_points, approx_grid_shape)
+
+
+def split_grid_size(points, cell_size):
+    """
+    Splits the points into a grid of equal approximately cell_sized columns
+    :param points: (n,7) array of points (XYZIRGB)
+    :param cell_size: square cell edges
+    :return: modified points array, grid_mask
+    """
+    total_distances = points[:, :2].max(axis=0) - points[:, :2].min(axis=0)
+    approx_grid_shape = np.ceil(total_distances / cell_size).astype(int)
+    print(f"grid_shape = {approx_grid_shape}")
+    return split_grid_shape(points, approx_grid_shape)
+
+
+def split_grid_shape(points, grid_shape):
     """
     Split the points into a grid pattern
     :param points: (n,7) array of points (XYZIRGB)
@@ -276,10 +297,10 @@ def split_grid(points, grid_shape):
         points[i] = np.hstack((col, col_grid_mask[:, None]))
 
     points = np.vstack(points)
-    return points[:, :-1], points[:, -1]
+    return points[:, :-1], points[:, -1].astype(int)
 
 
-def visualise_grid_mask(grid_mask, grid_shape):
+def visualise_grid_mask(grid_mask, grid_shape, log_scale=False):
     """
     Show a 3D barplot of the grid_mask cell densities
     :param grid_mask:
@@ -293,16 +314,19 @@ def visualise_grid_mask(grid_mask, grid_shape):
     _xx, _yy = np.meshgrid(_x, _y)
     x, y = _xx.ravel(), _yy.ravel()
 
-    top = np.zeros_like(x)
+    top = np.zeros_like(x).astype(float)
     idx, cnt = np.unique(grid_mask, return_counts=True)
-    idx = idx.astype(int)
-    top[idx-1] += cnt
+    if log_scale:
+        cnt = np.log10(cnt)
+    top[idx - 1] += cnt
 
     bottom = np.zeros_like(top)
     width = depth = 1
 
-    ax1.bar3d(x, y, bottom, width, depth, top, shade=True,)
+    ax1.bar3d(x, y, bottom, width, depth, top, shade=True, )
+
     plt.show()
+    # print([f"{idx[i]}: {cnt[i]}" for i in range(len(idx))])
 
 
 def consolidate_grid_cells(grid_mask):
@@ -466,6 +490,18 @@ def segment_pointcloud(pointcloud, num_splits=None, segment_method='uniform', so
         label_segments[i].fill(i)
 
     return convert_to_pointcloud(xyz, intensity, rgb), label_segments
+
+
+def custom_pptk(xyz, rgb, grid_mask=None):
+    import pptk
+    v = pptk.viewer(xyz)
+    v.color_map(turbo_colormap_data)
+    if grid_mask is None:
+        v.attributes(rgb)
+    else:
+        v.attributes(rgb, grid_mask)
+
+    return v
 
 
 def is_increasing(a: np.ndarray) -> bool:
