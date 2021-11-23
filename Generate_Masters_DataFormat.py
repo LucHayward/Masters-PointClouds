@@ -98,11 +98,6 @@ turbo_colormap_data = [[0.18995, 0.07176, 0.23217], [0.19483, 0.08339, 0.26149],
 """
 Given a pointcloud
 segment the pointcloud into N chunks of size KxK columns
-- Sort the points on the X axis
-- Split into rows
-- Sort each row on the Y axis
-- Split into the columns
-- Use this as your grid of columns
 Output each column as a segment in the area tagged train/valid/test_N
 """
 

@@ -227,8 +227,58 @@ def remove_zero_points(pointcloud):
     return remove_xyz_points(pointcloud, (0, 0, 0))
 
 
-# TODO: allow shape
-# def segment_pointcloud(pointcloud, shape):
+def test_split_grid(num_points=1000, shape=(3, 3,), value_range=100, visualise_pptk=True):
+    """
+    Generate a cloud of random points and segment it into a grid.
+    :param num_points: number of points to sample
+    :param shape: The number of cells in each row/column
+    :param value_range: xy value upper bound [0,value_range)
+    :param visualise_pptk: visualise the resulting point grid using pptk
+    :return:
+    """
+    points = np.random.randint(0, value_range, (num_points, 3))
+    points, grid_mask = split_grid(points, shape)
+
+    if visualise_pptk:
+        import pptk
+        v = pptk.viewer(points, grid_mask)
+        v.set(point_size=.1)
+        v.color_map(turbo_colormap_data)
+
+
+def split_grid(points, grid_shape):
+    """
+    Split the points into a grid pattern
+    :param points: (n,7) array of points (XYZIRGB)
+    :param grid_shape: (x,y,) tuple of grid shape
+    :return: modified points array, grid_mask
+    """
+    # Sort and split array along x-axis
+    points.view('i8,i8,i8').sort(order=['f0'], axis=0)
+
+    total_distances = points[:, :2].max(axis=0) - points[:, :2].min(axis=0)
+    intervals_x = np.asarray(
+        [points[:, 0].min(axis=0) + np.ceil(total_distances[0] / grid_shape[0]) * i for i in range(grid_shape[0])][1:])
+    intervals_y = np.asarray(
+        [points[:, 1].min(axis=0) + np.ceil(total_distances[1] / grid_shape[1]) * i for i in range(grid_shape[1])][1:])
+    interval_idxs_x = [find_nearest_id(points[:, 0], v) for v in intervals_x]
+
+    points = np.array_split(points, interval_idxs_x)
+
+    # Sort and split resulting columns along y-axis
+    for i in tqdm(range(len(points))):
+        col = points[i]
+        col.view('i8,i8,i8').sort(order=['f1'], axis=0)
+        interval_idxs_y = [0] + [find_nearest_id(col[:, 1], v) for v in intervals_y] + [col.shape[0]]
+        col_grid_mask = np.concatenate(
+            [np.repeat(i * grid_shape[1] + j, reps - interval_idxs_y[j - 1]) for j, reps in
+             enumerate(interval_idxs_y[1:], start=1)])
+        points[i] = np.hstack((col, col_grid_mask[:, None]))
+
+    points = np.vstack(points)
+    return points[:, :-1], points[:, -1]
+
+
 def segment_pointcloud(pointcloud, num_splits=None, segment_method='uniform', sort_axis='x', column_size=None):
     """
 
