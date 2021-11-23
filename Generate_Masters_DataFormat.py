@@ -5,9 +5,6 @@ from numpy.random import default_rng
 import argparse
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser('generate')
-parser.add_argument('--dataset', default='Church', choices=['Church', 'SongMnara'])
-args = parser.parse_args()
 turbo_colormap_data = [[0.18995, 0.07176, 0.23217], [0.19483, 0.08339, 0.26149], [0.19956, 0.09498, 0.29024],
                        [0.20415, 0.10652, 0.31844], [0.20860, 0.11802, 0.34607], [0.21291, 0.12947, 0.37314],
                        [0.21708, 0.14087, 0.39964], [0.22111, 0.15223, 0.42558], [0.22500, 0.16354, 0.45096],
@@ -103,20 +100,16 @@ Output each column as a segment in the area tagged train/valid/test_N
 
 rng = default_rng()
 
-area_map = {'Church': 'Area_1',
-            'SongoMnara': 'Area_2'}
-
 # macos files
 # church_file = Path('Data/Church/Church.ply')
 # songo_mnara_file = Path('Data/SongoMnara/SongoMnara.ply')
 # songo_mnara_uds5_file = Path('Data/SongoMnara/SongoMnara_uds5.ply')ne
 
-AREA = 'Church'
-# AREA = 'SongoMnara'
+# AREA = 'Church'
+AREA = 'SongoMnara'
 
-SEGMENT_METHOD = 'columns'
-# NUM_SPLITS = 10
-COLUMN_SIZE = 5
+GRID_SHAPE = (10, 10)
+CELL_SIZE = 5
 
 church_file = Path('../../PatrickData/Church/Church.ply')
 songo_mnara_file = Path('../../PatrickData/SongoMnara/SongoMnara.ply')
@@ -126,19 +119,25 @@ masters_data_dir = Path(f'../../PatrickData/{AREA}/MastersFormat')
 
 
 def main():
-    pointcloud = DataProcessing.load_from_ply(church_file)
-    xyz, intensity, rgb, segments, grid_mask = DataProcessing.segment_pointcloud(pointcloud,
-                                                                                 segment_method=SEGMENT_METHOD,
-                                                                                 column_size=COLUMN_SIZE)
+    points = DataProcessing.load_from_ply(songo_mnara_uds5_file)
+    points = DataProcessing.convert_to_array_stacked(points)
 
-    # For each segment, write each point as xyzil
+    # points, grid_mask = DataProcessing.split_grid_shape(points, GRID_SHAPE)
+    points, grid_mask = DataProcessing.split_grid_size(points, CELL_SIZE)
+
+    xyz, intensity, rgb = points[:, :3], points[:, 3], points[:, 4:]
+
+    save_folder_path = masters_data_dir / str(GRID_SHAPE)
+    save_folder_path.mkdir(parents=True, exist_ok=True)
+
+    # For each segment, write each point as xyziLabel
     for segment_id in tqdm(np.unique(grid_mask)):
-        segment_id = int(segment_id)
+        # segment_id = int(segment_id)
         out_filename = f"{AREA}_segment_{segment_id}.npy"
         segment_data = np.hstack(
             (xyz[np.where(grid_mask == segment_id)], intensity[np.where(grid_mask == segment_id)][..., None],
              rgb[np.where(grid_mask == segment_id), 0].T))
-        np.save(masters_data_dir / out_filename, segment_data)
+        np.save(save_folder_path / out_filename, segment_data)
 
 
 if __name__ == '__main__':
