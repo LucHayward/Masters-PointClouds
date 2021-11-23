@@ -109,7 +109,7 @@ def load_from_ply(file):
     return ply_load
 
 
-def load_from_ptx(file_list):
+def load_from_ptx(file_list, return_id_mask=False):
     """
     Loads data from the give ptx files into memory. Converts red channel to 0/255.
     Removes origin points (no-return)
@@ -120,16 +120,20 @@ def load_from_ptx(file_list):
     point_clouds = []
     rows = []
     cols = []
-    for ptx_file in [x for x in file_list if x.suffix == ".ptx"]:
+    ids = []
+    for i, ptx_file in enumerate([x for x in file_list if x.suffix == ".ptx"], start=1):
         with open(ptx_file, 'r') as file:
             print(f"File: {ptx_file.name}")
             row, col = [int(next(file).strip()) for _ in range(2)]
             rows.append(row)
             cols.append(col)
-            print(f'Rows: {row}\nCols: {col}\nTotal points: {row * col}\n')
+            print(f'Rows: {row}\nCols: {col}\nTotal points: {row * col}')
             pcd = np.loadtxt(ptx_file, skiprows=10)
             pcd = np.delete(pcd, np.where(np.all(pcd[:, :3] == 0, axis=1)), axis=0)
+            print(f"Remaining points: {len(pcd)}\n")
             point_clouds.append(pcd)
+            if return_id_mask:
+                ids.append(np.ones(len(pcd)) * i)
 
     flat_point_cloud = np.concatenate(point_clouds)
 
@@ -139,6 +143,8 @@ def load_from_ptx(file_list):
     # flat_point_cloud = flat_point_cloud[:, 4] * 255
     flat_point_cloud[flat_point_cloud[:, 4] == 1, 4] = 255
     # flat_point_cloud[:, 4] = [255 if x != 0 else 0 for x in flat_point_cloud[:, 4]]
+    if return_id_mask:
+        return flat_point_cloud[:, :3], flat_point_cloud[:, 3], flat_point_cloud[:, 4:] / 255, ids
     return flat_point_cloud[:, :3], flat_point_cloud[:, 3], flat_point_cloud[:, 4:] / 255
 
 
