@@ -279,6 +279,37 @@ def split_grid(points, grid_shape):
     return points[:, :-1], points[:, -1]
 
 
+def visualise_grid_mask(grid_mask, shape):
+    """
+    Show a 3D barplot of the grid_mask cell densities
+    :param grid_mask:
+    :param shape:
+    """
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111, projection='3d')
+    _x = np.arange(shape[0])
+    _y = np.arange(shape[1])
+    _xx, _yy = np.meshgrid(_x, _y)
+    x, y = _xx.ravel(), _yy.ravel()
+
+    top = np.unique(grid_mask, return_counts=True)[1]
+    bottom = np.zeros_like(top)
+    width = depth = 1
+
+    ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
+    plt.show()
+
+
+def consolidate_grid_cells(grid_mask):
+    """
+    Given a grid_mask, consolidates the grids by merging extremely small
+    :param grid_mask:
+    :return:
+    """
+    pass
+
+
 def segment_pointcloud(pointcloud, num_splits=None, segment_method='uniform', sort_axis='x', column_size=None):
     """
 
@@ -504,6 +535,12 @@ def generate_segment_mask(size, splits):
 def convert_to_arrays(pointcloud):
     """:returns XYZ, intensity, RGB"""
     return np.asarray(pointcloud.points), np.asarray(pointcloud.normals)[:, 0], np.asarray(pointcloud.colors)
+
+
+def convert_to_array_stacked(pointcloud):
+    """:returns hstacked (n,7) XYZIRGB"""
+    points, intensity, rgb = convert_to_arrays(pointcloud)
+    return np.hstack((points, intensity[:, None], rgb))
 
 
 def convert_to_pointcloud(xyz, intensity, rgb):
