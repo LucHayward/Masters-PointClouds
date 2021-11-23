@@ -254,7 +254,7 @@ def split_grid(points, grid_shape):
     :return: modified points array, grid_mask
     """
     # Sort and split array along x-axis
-    points.view('i8,i8,i8').sort(order=['f0'], axis=0)
+    points.view('f8,f8,f8,f8,f8,f8,f8').sort(order=['f0'], axis=0)
 
     total_distances = points[:, :2].max(axis=0) - points[:, :2].min(axis=0)
     intervals_x = np.asarray(
@@ -268,7 +268,7 @@ def split_grid(points, grid_shape):
     # Sort and split resulting columns along y-axis
     for i in tqdm(range(len(points))):
         col = points[i]
-        col.view('i8,i8,i8').sort(order=['f1'], axis=0)
+        col.view('f8,f8,f8,f8,f8,f8,f8').sort(order=['f1'], axis=0)
         interval_idxs_y = [0] + [find_nearest_id(col[:, 1], v) for v in intervals_y] + [col.shape[0]]
         col_grid_mask = np.concatenate(
             [np.repeat(i * grid_shape[1] + j, reps - interval_idxs_y[j - 1]) for j, reps in
