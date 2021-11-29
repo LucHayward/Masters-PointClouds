@@ -98,7 +98,7 @@ def load_from_ply(file):
     """
     Loads the ply file in to memory
     :param file: PathLib file to .ply file
-    :return: xyz, intensity, rgb and open3d point cloud
+    :return: open3d point cloud
     """
     print(f"Loading {file}")
     filename = str(file)
