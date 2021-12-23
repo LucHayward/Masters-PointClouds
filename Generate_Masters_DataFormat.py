@@ -106,12 +106,12 @@ rng = default_rng()
 # songo_mnara_uds5_file = Path('Data/SongoMnara/SongoMnara_uds5.ply')ne
 
 # AREA = 'Church'
-AREA = 'SongoMnara'
+AREA = 'Church'
 
 GRID_SHAPE = (10, 10)
 CELL_SIZE = 5
 
-church_file = Path('../../PatrickData/Church/Church.ply')
+church_file = Path('PatrickData/church_registered.npy')
 songo_mnara_file = Path('../../PatrickData/SongoMnara/SongoMnara.ply')
 songo_mnara_uds5_file = Path('../../PatrickData/SongoMnara/SongoMnara_uds5.ply')
 songo_mnara_voxel01_file = Path('../../PatrickData/SongoMnara/SongoMnara_voxel01.ply')
@@ -119,15 +119,16 @@ masters_data_dir = Path(f'../../PatrickData/{AREA}/MastersFormat')
 
 
 def main():
-    points = DataProcessing.load_from_ply(songo_mnara_uds5_file)
-    points = DataProcessing.convert_to_array_stacked(points)
+    # points = DataProcessing.load_from_ply(songo_mnara_uds5_file)
+    # points = DataProcessing.convert_to_array_stacked(points)
+    points = np.load(church_file)
 
     # points, grid_mask = DataProcessing.split_grid_shape(points, GRID_SHAPE)
     points, grid_mask = DataProcessing.split_grid_size(points, CELL_SIZE)
 
     xyz, intensity, rgb = points[:, :3], points[:, 3], points[:, 4:]
 
-    save_folder_path = masters_data_dir / str(GRID_SHAPE)
+    save_folder_path = masters_data_dir / str(CELL_SIZE)
     save_folder_path.mkdir(parents=True, exist_ok=True)
 
     # For each segment, write each point as xyziLabel
