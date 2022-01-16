@@ -134,7 +134,7 @@ def main():
     # For each segment, write each point as xyziLabel
     for segment_id in tqdm(np.unique(grid_mask)):
         # segment_id = int(segment_id)
-        out_filename = f"{AREA}_segment_{segment_id}.npy"
+        out_filename = f"{'validate' if segment_id % 5 == 0 else 'train'}{segment_id}.npy"
         segment_data = np.hstack(
             (xyz[np.where(grid_mask == segment_id)], intensity[np.where(grid_mask == segment_id)][..., None],
              rgb[np.where(grid_mask == segment_id), 0].T))
