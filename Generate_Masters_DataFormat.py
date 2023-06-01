@@ -109,13 +109,13 @@ rng = default_rng()
 AREA = 'Church'
 
 GRID_SHAPE = (10, 10)
-CELL_SIZE = 5
+CELL_SIZE = 2
 
-church_file = Path('PatrickData/church_registered.npy')
-songo_mnara_file = Path('../../PatrickData/SongoMnara/SongoMnara.ply')
-songo_mnara_uds5_file = Path('../../PatrickData/SongoMnara/SongoMnara_uds5.ply')
-songo_mnara_voxel01_file = Path('../../PatrickData/SongoMnara/SongoMnara_voxel01.ply')
-masters_data_dir = Path(f'../../PatrickData/{AREA}/MastersFormat')
+church_file = Path('data/PatrickData/church_registered.npy')
+songo_mnara_file = Path('data/PatrickData/SongoMnara/SongoMnara.ply')
+songo_mnara_uds5_file = Path('data/PatrickData/SongoMnara/SongoMnara_uds5.ply')
+songo_mnara_voxel01_file = Path('data/PatrickData/SongoMnara/SongoMnara_voxel01.ply')
+masters_data_dir = Path(f'data/PatrickData/{AREA}/MastersFormat')
 
 
 def main():
@@ -130,6 +130,9 @@ def main():
 
     save_folder_path = masters_data_dir / str(CELL_SIZE)
     save_folder_path.mkdir(parents=True, exist_ok=True)
+
+    for i,g in enumerate(np.unique(grid_mask)):
+        grid_mask[grid_mask==g]=i
 
     # For each segment, write each point as xyziLabel
     for segment_id in tqdm(np.unique(grid_mask)):
